@@ -1,0 +1,4 @@
+.env
+newenv
+db.sqlite3
+media
