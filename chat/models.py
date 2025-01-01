@@ -1,11 +1,18 @@
 from django.db import models
 from django.contrib.auth.models import User
+import uuid
 
 class Message(models.Model):
     """ a models to represent messsages """
+    message_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False, 
+    ) 
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
-    content = models.TextField(blank=True)
-    image = models.ImageField(upload_to="chat_images/", blank=True)
+    #content = models.TextField(blank=True)
+    encrypted_content= models.BinaryField(null=True, blank=True)
+    #image = models.ImageField(upload_to="chat_images/", blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     delivered= models.BooleanField(default=False)
     read_by=  models.ManyToManyField(User, related_name="has_read", blank=True)
@@ -14,6 +21,13 @@ class Message(models.Model):
         return f"{self.sender.username}: {self.content[:20]}"  # Truncate for display
     class Meta:
         ordering = ["-timestamp"]  # Order by timestamp (newest first)
+
+class MessageKey(models.Model):
+    """ a model to hold the encrypted message key"""
+    message = models.ForeignKey(Message,related_name="message_key",on_delete=models.CASCADE  )
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    encrypted_message_key = models.BinaryField(null=True, blank=True)
+
 
 class Chat(models.Model):
     """A model to hold all messages in a chat"""
@@ -34,6 +48,7 @@ class Chat(models.Model):
         chat_number = str(self.pk)  # Convert primary key to string
         return f"Chat {chat_number}"
     
+
 
 class CallSession(models.Model):
     """

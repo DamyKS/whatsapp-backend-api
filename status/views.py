@@ -12,7 +12,7 @@ from datetime import timedelta
 class StatusList(APIView):
     def get(self, request):
         followings = request.user.follows.all()
-        print(followings)
+        
         data = {}
         for profile in followings:
             # Delete statuses older than 24 hours in a single query
@@ -24,8 +24,11 @@ class StatusList(APIView):
             #fetch status for the user 
             user_status = Status.objects.filter(creator=profile.owner).all()
             username= profile.owner.username
-            serialized_status = StatusSerializer(user_status, many=True).data
-            data[username]= serialized_status
+
+            #add status to data dict
+            if user_status:
+                serialized_status = StatusSerializer(user_status, many=True).data
+                data[username]= serialized_status
         return Response(data)
     
     def post(self, request):

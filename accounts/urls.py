@@ -5,7 +5,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 
-app_name = 'chat'
+app_name = 'accounts'
 urlpatterns = [
     path("profile/", ProfileDetail.as_view(), name="profile_detail"),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)#for saving the pics

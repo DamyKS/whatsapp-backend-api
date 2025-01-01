@@ -82,3 +82,19 @@ class CallSessionList(APIView):
 
 class CallSessionDetail(APIView):
     pass
+
+class ChatSearch(APIView):
+    def post(self, request, pk):
+        """
+        Searches for messages within a specific chat.
+        """
+        chat = get_object_or_404(Chat, pk=pk)
+        search_text = request.data.get('search_text', None)
+
+        if not search_text:
+            return Response([], status=status.HTTP_200_OK) 
+
+        messages = chat.messages.filter(content__icontains=search_text)
+        serializer = MessageSerializer(messages, many=True)
+        return Response(serializer.data)
+        

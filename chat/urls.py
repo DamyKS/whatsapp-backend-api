@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import ChatList, ChatDetail, MessageDetail , CallSessionList
+from .views import ChatList, ChatDetail, MessageDetail , CallSessionList, ChatSearch
 from . import views
 from django.conf import settings
 from django.conf.urls.static import static
@@ -9,6 +9,7 @@ app_name = 'chat'
 urlpatterns = [
     path("chats/", ChatList.as_view(), name="chats_list"),
     path("chats/<int:pk>/", ChatDetail.as_view(), name="chat_detail"),
+    path("chats/<int:pk>/search", ChatSearch.as_view(), name="chat_search"),
     path("message/<int:pk>/", MessageDetail.as_view(), name="message"),
     path('<int:room_id>/', views.room, name= 'room'),
 
