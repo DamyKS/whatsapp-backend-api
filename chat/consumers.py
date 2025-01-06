@@ -34,12 +34,16 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         return [user.id for user in chat.participants.all()]
     
     @database_sync_to_async
-    def get_user(self, user_id):
-        """Get user object"""
-        return User.objects.get(pk=user_id)
+    def get_username(self, user_id):
+        """Get username"""
+        try:
+            user = User.objects.get(pk=user_id)
+            return user.username
+        except User.DoesNotExist:
+            return None
     
     @database_sync_to_async
-    def save_encrypted_message(self, sender_id, encrypted_content, encrypted_keys):
+    def save_encrypted_message(self, sender_id, encrypted_content, encrypted_message_keys):
         """Save encrypted message and its keys"""
         chat_id = int(self.scope['url_route']['kwargs']['room_id'])
         chat = Chat.objects.get(pk=chat_id)
@@ -53,7 +57,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         )
         
         # Save encrypted message keys for each participant
-        for user_id, encrypted_key in encrypted_keys.items():
+        for user_id, encrypted_key in encrypted_message_keys.items():
             recipient= User.objects.get(id=user_id)
             MessageKey.objects.create(
                 message=new_message,
@@ -110,7 +114,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         participants = await self.get_chat_participants(self.room_id)
         
         # Encrypt message key for each participant
-        encrypted_keys = {}
+        encrypted_message_keys = {}
         decrypted_pri_key= UserKeyManager.get_session_key(sender_id)
         print(len(decrypted_pri_key))
         print("sender_private_key :  ",decrypted_pri_key)
@@ -122,31 +126,29 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
             #print("recipient public key:  ",recipient_public_key)
             # Encrypt message key
             encryption_box = Box(sender_private_key, recipient_public_key)
-            encrypted_key = encryption_box.encrypt(message_key)
-            encrypted_keys[participant_id] = encrypted_key  # Store as bytes
+            encrypted_nessage_key = encryption_box.encrypt(message_key)
+            encrypted_message_keys[participant_id] = encrypted_nessage_key  # Store as bytes
         
         # Save encrypted message and keys
         message_id = await self.save_encrypted_message(
             sender_id,
             encrypted_content,
-            encrypted_keys
+            encrypted_message_keys
         )
-        
-        print( 'encrypted_keys: ', {
-                    str(k): b64encode(v).decode() 
-                    for k, v in encrypted_keys.items()
-                })
+        sender_keys= await self.get_user_keys(sender_id)
+        #print(b64encode(sender_keys['public_key']).decode())
         # Broadcast encrypted message to room
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'chat_message',
                 'message_id': message_id,
-                'sender_id': sender_id,
+                'sender_username': await self.get_username(sender_id),
+                'sender_public_key': b64encode(sender_keys['public_key']).decode(),
                 'encrypted_content': b64encode(encrypted_content).decode(),
-                'encrypted_keys': {
-                    str(k): b64encode(v).decode() 
-                    for k, v in encrypted_keys.items()
+                'encrypted_message_keys': {
+                    await self.get_username(k): b64encode(v).decode()
+                    for k, v in encrypted_message_keys.items()
                 }
             }
         )
@@ -158,20 +160,21 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
     #         'message_id': event['message_id'],
     #         'sender_id': event['sender_id'],
     #         'encrypted_content': event['encrypted_content'],
-    #         'encrypted_key': event['encrypted_keys'].get(str(user_id))
+    #         'encrypted_key': event['encrypted_message_keys'].get(str(user_id))
     #     }))
     #     #
     async def chat_message(self, event):
         try:
             # Get user ID safely
             user_id = self.scope.get('user', {}).id if self.scope.get('user') else None
-            
+            username= await self.get_username(user_id)
             if user_id:
                 await self.send(text_data=json.dumps({
                     'message_id': event['message_id'],
-                    'sender_id': event['sender_id'],
+                    'sender_username': event['sender_username'],
+                    'sender_public_key': event['sender_public_key'],
                     'encrypted_content': event['encrypted_content'],
-                    'encrypted_key': event['encrypted_keys'].get(str(user_id))
+                    'encrypted_message_keys': event['encrypted_message_keys']
                 }))
             else:
                 # Handle case where user is not authenticated

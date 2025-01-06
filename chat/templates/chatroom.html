@@ -5,6 +5,7 @@
 {% load static %}
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl/1.0.3/nacl.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl-util/0.15.1/nacl-util.min.js"></script>
 
@@ -92,12 +93,12 @@ body {
   color: #251f1f;
 }
 #chat-container {
-    /* Existing styles... */
+    
     overflow-y: auto;
-    height: 400px;  /* Adjust height as needed */
+    height: 400px;  
 }
 #chat_image {
-  max-width: 300px;  /* Remove or adjust as needed */ 
+  max-width: 300px;  
   margin-right: 20px;
   border-radius: 5%;
 }
@@ -107,9 +108,9 @@ body {
 <body>
   <script>
     window.onload = function() {
-        var chatContainer = document.getElementById("chat-container");  // Replace with your container element ID
+        var chatContainer = document.getElementById("chat-container");  
         if (chatContainer) {
-            chatContainer.scrollTop = chatContainer.scrollHeight;  // Scroll to bottom
+            chatContainer.scrollTop = chatContainer.scrollHeight;  
         } 
         window.scrollTo(0, document.documentElement.scrollHeight);
     };
@@ -149,8 +150,8 @@ body {
 
 {{room_id|json_script:"room-id"}}
 {{request.user.username|json_script:"user_username"}}
-{{request.user.id|json_script:"user-id"}}  <!-- Add this -->
-<!-- Replace the existing script section with this -->
+{{request.user.id|json_script:"user-id"}}  
+
 <script>
   const roomId = JSON.parse(document.getElementById('room-id').textContent);
   const user_username = JSON.parse(document.getElementById('user_username').textContent);
@@ -178,14 +179,22 @@ body {
   // Handle received messages
   chatSocket.onmessage = async function(e) {
     const data = JSON.parse(e.data);
-    console.log('Received encrypted message:', data);
-
+    console.log("data", data);
     try {
       // Get the message content
       const encryptedContent = data.encrypted_content;
-      const encryptedKey = data.encrypted_key;
+      //get this user's username
+      //get_this_user_msg_key from encrypted_msg_key dict using his username
+      //get this user's private key
+      //get senders public key
+      //create Box(user_pri, sender_pub)
+      //use Box to decrypt encrypted_msg_key= decrypted_msg_key
+      //use decrypted_msg_key to create SecretBox
+      //use secret box to decrypt encrpted_msg_content = content
+
+
       const senderId = data.sender_id;
-      console.log("encrypted keys:  ", data.encrypted_keys)
+      console.log("encrypted_message_keys:  ", data.encrypted_message_keys);
       
       // Create message element
       const messageElement = document.createElement('div');
