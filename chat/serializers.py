@@ -1,6 +1,11 @@
 from django.contrib.auth import get_user_model 
 from rest_framework import serializers
-from .models import Chat, Message, CallSession
+from .models import Chat, Message,MessageKey,  CallSession
+
+from nacl.public import Box, PrivateKey, PublicKey
+from nacl.secret import SecretBox
+from accounts.models import UserKey
+from accounts.key_cache import UserKeyManager
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,6 +21,47 @@ class MessageSerializer(serializers.ModelSerializer):
         model = Message
         #read_only_fields = ['id', 'timestamp', 'read_by']
 
+class DecryptedMessageSerializer(serializers.ModelSerializer):
+    sender = serializers.SerializerMethodField()
+    read_by = UserSerializer(many=True)
+    content= serializers.SerializerMethodField()
+    class Meta:
+        #'image'
+        fields = ('id', 'sender', 'content','timestamp', 'delivered','read_by')
+        model = Message
+        #read_only_fields = ['id', 'timestamp', 'read_by']
+    def get_sender(self,obj):
+        return obj.sender.username
+    def get_content(self, obj):
+        #get curent user
+        current_user=self.context['request'].user
+        #get sender from msg obj
+        sender=obj.sender
+        #get msg key 
+        message_keys= MessageKey.objects.filter(message=obj).all()
+        for potential_msg_key in message_keys:
+            if potential_msg_key.recipient==current_user:
+                message_key=potential_msg_key
+        #get encrypted_msg_key from msg key
+        encrypted_message_key= message_key.encrypted_message_key
+        #get current user private key from cache
+        current_user_private_key= PrivateKey(UserKeyManager.get_session_key(current_user.id))
+        #get sender's userkey and get their public key 
+        sender_public_key= PublicKey( UserKey.objects.get(user=sender).public_key)
+        #create Box(current_user_pri, sender_pub )
+        print("pti:  ", current_user_private_key)
+        print("pub: ", sender_public_key)
+        box= Box(current_user_private_key,sender_public_key )
+        #use Box to decript encrypted_msg_key = decrypted_msg_key
+        decrypted_message_key= box.decrypt(encrypted_message_key)
+        #use decrypted_msg_key to create SecretBox 
+        secret_box= SecretBox(decrypted_message_key)
+        #use SecretBox to decrypted encrypted_msg_content = content
+        decrypted_content=secret_box.decrypt(obj.encrypted_content)
+        #retirn content
+        print("TEST TEST TEST")
+        return decrypted_content.decode('utf-8') 
+    
 class ChatSerializer(serializers.ModelSerializer):
     participants = serializers.StringRelatedField(many=True)
     last_message = serializers.SerializerMethodField()

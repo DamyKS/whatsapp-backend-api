@@ -73,7 +73,6 @@ class CustomRegisterView(RegisterView):
         # Generate and encrypt keys
         private_key, public_key = generate_user_keys()
         private_key_data = encrypt_private_key(private_key, master_key)
-        print(private_key)
         # Create UserKey with the separated ciphertext and nonce
         UserKey.objects.create(
             user=user,
@@ -94,9 +93,69 @@ class CustomRegisterView(RegisterView):
             #     master_key=master_key
             # )
             # print(decrypted_key)
+            print(private_key)
             UserKeyManager.store_session_key(user.id, private_key)
         except Exception as e:
             # Log the error but don't prevent user creation
             print(f"Failed to store session key: {str(e)}")
             
         return user
+
+from dj_rest_auth.views import LoginView
+from dj_rest_auth.views import LogoutView
+
+class CustomLoginView(LoginView):
+    def post(self, request, *args, **kwargs):
+        # Call parent class login first
+        response = super().post(request, *args, **kwargs)
+        
+        # If login was successful
+        if response.status_code == 200:
+            try:
+                # Get password from request data
+                password = request.data.get('password')
+                
+                # Get user's key data
+                user_key = UserKey.objects.get(user=self.user)
+                
+                # Derive master key using stored salt
+                master_key = derive_master_key(password, user_key.master_key_salt)
+                
+                # Decrypt private key
+                decrypted_key = decrypt_private_key(
+                    encrypted_key=user_key.encrypted_private_key,
+                    nonce=user_key.key_nonce,
+                    master_key=master_key
+                )
+                
+                # Store in cache
+                UserKeyManager.store_session_key(request.user.id, decrypted_key)
+                
+                # Return original response
+                return response
+                
+            except Exception as e:
+                # Log the error but don't prevent login
+                print(f"Failed to process keys during login: {str(e)}")
+                
+                # Add warning to response data
+                response_data = response.data
+                response_data['key_warning'] = 'Login successful but key processing failed'
+                return Response(response_data, status=status.HTTP_200_OK)
+        
+        return response
+    
+
+class CustomLogoutView(LogoutView):
+    def logout(self, request):
+        try:
+            # Clear cached key before logout
+            if request.user.is_authenticated:
+                UserKeyManager.clear_session_key(request.user.id)
+        except Exception as e:
+            print(f"Error clearing session key during logout: {str(e)}")
+            
+        # Proceed with normal logout
+        response = super().logout(request)
+        return response
+    

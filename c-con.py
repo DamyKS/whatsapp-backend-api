@@ -1,3 +1,73 @@
+class ChatRoomConsumer(AsyncWebsocketConsumer):   
+    @database_sync_to_async
+    def save_message(self, username, message):
+        #get the sender 
+        sender=User.objects.get(username=username)
+        #get the chat
+        chat_room_id= int(self.scope['url_route']['kwargs']['room_id'])
+        chat = Chat.objects.get(pk=chat_room_id)
+        #create new message and add a sender and content to it 
+        new_message= Message()
+        new_message.sender = sender
+        new_message.content=message
+        new_message.save()
+        #add new message to current chat and save
+        chat.messages.add(new_message)
+        chat.save()
+    
+
+    async def connect(self):      
+        self.room_id = self.scope['url_route']['kwargs']['room_id']
+        self.room_group_name = 'chat_%s' % self.room_id
+        
+        await self.channel_layer.group_add(
+            self.room_group_name,  
+            self.channel_name
+        )
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(
+            self.room_group_name,  
+            self.channel_name
+        )
+
+    async def receive(self, text_data):
+        text_data_json = json.loads(text_data)
+        message = text_data_json['message']
+        username = text_data_json['username']
+        await self.save_message(username, message)
+
+        await self.channel_layer.group_send(
+            self.room_group_name,  
+            {
+                'type':'chatroom_message',
+                'message': message,
+                'username': username,
+            }
+        )
+
+        # Send immediate acknowledgment back to the sender
+        await self.send(text_data=json.dumps({
+            'message': message,
+            'username': username,
+        }))
+
+        
+    async def chatroom_message(self, event):
+        message = event['message']
+        username = event['username']
+        await self.send(text_data=json.dumps({
+            'message': message,
+            'username':username,
+        }))
+
+
+
+
+
+
+
 
 <!DOCTYPE html>
 <html>
@@ -146,106 +216,54 @@ body {
   <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
   <button id="send-message-button">Send</button>
 </div>
-
 {{room_id|json_script:"room-id"}}
-{{request.user.username|json_script:"user_username"}}
-{{request.user.id|json_script:"user-id"}}  <!-- Add this -->
-<!-- Replace the existing script section with this -->
+{{request.user.id|json_script:"user-id"}}
+
 <script>
-  const roomId = JSON.parse(document.getElementById('room-id').textContent);
+  const roomId= JSON.parse(document.getElementById('room-id').textContent);
   const user_username = JSON.parse(document.getElementById('user_username').textContent);
-  const userId = JSON.parse(document.getElementById('user-id').textContent); // Add this to your template
 
-  // Initialize WebSocket connection
-  const chatSocket = new WebSocket(
-    'ws://' + window.location.host + '/ws/chat/' + roomId + '/'
-  );
-
-  // Handle sending messages
-  document.querySelector("#send-message-button").onclick = async function(e) {
+  document.querySelector("#send-message-button").onclick = function(e){
     const messageInputDOM = document.querySelector('#message-input');
     const message = messageInputDOM.value;
-    
-    if (message.trim()) {
-      chatSocket.send(JSON.stringify({
-        'message': message,
-        'sender_id': userId
-      }));
-      messageInputDOM.value = "";
-    }
-  };
+     chatSocket.send(JSON.stringify({
+      'message': message,
+      'username':user_username,
+    }))
+    messageInputDOM.value="";
+  }
+  console.log('ws://'+ window.location.host+'/ws/chat/'+roomId+'/')
+  const chatSocket = new WebSocket (
+      'ws://'+ window.location.host+'/ws/chat/'+roomId+'/'
+  );
 
-  // Handle received messages
-  chatSocket.onmessage = async function(e) {
-    const data = JSON.parse(e.data);
-    console.log('Received encrypted message:', data);
+  
+  chatSocket.onmessage = function(e){
+      const data = JSON.parse(e.data);
+      console.log(data);
 
-    try {
-      // Get the message content
-      const encryptedContent = data.encrypted_content;
-      const encryptedKey = data.encrypted_key;
-      const senderId = data.sender_id;
-      console.log("encrypted keys:  ", data.encrypted_keys)
-      
-      // Create message element
       const messageElement = document.createElement('div');
       messageElement.classList.add('container');
-      
-      let new_message_string;
-      // Check if this is from the current user
-      if (senderId === userId) {
+      new_message_string= `<img src="https://res.cloudinary.com/dqnwkkmzz/image/upload/v1/media/post-pic/default_dp.png" alt="Avatar" style="width:100%;">
+        <p>`+data.username+`</p>
+        <p>`+data.message+`</p>
+        <span class="time-right">11:00</span>`;
+      if (data.username == user_username){
         messageElement.classList.add('darker');
-        new_message_string = `
-          <img src="https://res.cloudinary.com/dqnwkkmzz/image/upload/v1/media/post-pic/default_dp.png" alt="Avatar" class="right" style="width:100%;">
-          <p>${user_username}</p>
-          <p>${encryptedContent}</p>
-          <span class="time-right">${new Date().toLocaleTimeString()}</span>
-        `;
-      } else {
-        new_message_string = `
-          <img src="https://res.cloudinary.com/dqnwkkmzz/image/upload/v1/media/post-pic/default_dp.png" alt="Avatar" style="width:100%;">
-          <p>${data.sender_username || 'User'}</p>
-          <p>${encryptedContent}</p>
-          <span class="time-right">${new Date().toLocaleTimeString()}</span>
-        `;
+        new_message_string= `<img src="https://res.cloudinary.com/dqnwkkmzz/image/upload/v1/media/post-pic/default_dp.png" alt="Avatar" class="right" style="width:100%;">
+        <p>`+data.username+`</p>
+        <p>`+data.message+`</p>
+        <span class="time-right">11:00</span>`; 
+        
       }
+
       
-      messageElement.innerHTML = new_message_string;
-      
-      // Add message to chat container
+      messageElement.innerHTML= new_message_string;
       const chatContainer = document.querySelector('#chat-container');
       chatContainer.appendChild(messageElement);
-      
-      // Scroll to bottom
+
       chatContainer.scrollTop = chatContainer.scrollHeight;
-    } catch (error) {
-      console.error('Error processing message:', error);
-    }
   };
-
-  // Handle Enter key in textarea
-  document.querySelector('#message-input').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      document.querySelector('#send-message-button').click();
-    }
-  });
-
-  // Handle WebSocket errors
-  chatSocket.onerror = function(error) {
-    console.error('WebSocket error:', error);
-  };
-
-  chatSocket.onclose = function(e) {
-    console.log('Chat socket closed unexpectedly');
-  };
-
-  // Auto-expand textarea
-  const messageInput = document.querySelector('#message-input');
-  messageInput.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = (this.scrollHeight) + 'px';
-  });
 </script>
 </body>
 </html>

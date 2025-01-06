@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from .models import Chat, Message, CallSession
-from .serializers import ChatSerializer , MessageSerializer, CallSessionSerializer
+from .serializers import ChatSerializer , MessageSerializer, CallSessionSerializer, DecryptedMessageSerializer
 
 class ChatList(APIView):
     def get(self, request):
@@ -60,10 +60,12 @@ class MessageDetail(APIView):
 def room(request,room_id):
     chat = Chat.objects.get(pk=room_id)
     messages = chat.messages.order_by('timestamp').all()
+    messages= DecryptedMessageSerializer(messages,many=True, context={'request': request}).data
 
     return render(request, 'chatroom.html', {
         'room_id': room_id,
         'messages':messages,
+        'request': request, 
     })
 
 

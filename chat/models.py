@@ -18,7 +18,7 @@ class Message(models.Model):
     read_by=  models.ManyToManyField(User, related_name="has_read", blank=True)
 
     def __str__(self):
-        return f"{self.sender.username}: {self.content[:20]}"  # Truncate for display
+        return f"{self.sender.username}: {self.encrypted_content[:20]}"  # Truncate for display
     class Meta:
         ordering = ["-timestamp"]  # Order by timestamp (newest first)
 
@@ -26,6 +26,7 @@ class MessageKey(models.Model):
     """ a model to hold the encrypted message key"""
     message = models.ForeignKey(Message,related_name="message_key",on_delete=models.CASCADE  )
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    recipient = models.ForeignKey(User, related_name="recipient_msg_key",on_delete=models.CASCADE)
     encrypted_message_key = models.BinaryField(null=True, blank=True)
 
 
