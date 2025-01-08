@@ -1,260 +1,346 @@
-
 <!DOCTYPE html>
 <html>
 <head>
 {% load static %}
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl/1.0.3/nacl.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl-util/0.15.1/nacl-util.min.js"></script>
-
 <style>
-.chat-input-container {
-  display: flex;
-  align-items: center;
-  border: 1px solid #4c0ae6;
-  border-radius: 4px;
-  padding: 10px;
-  margin-bottom: 10px;
-}
-
-#message-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  font-size: 16px;
-  padding: 5px;
-  height: 40px;  /* Initial height */
-  min-height: 30px;  /* Set minimum height */
-  overflow: hidden;  /* Remove scrollbar */
-}
-
-#send-message-button {
-  background-color: #4752f7;
-  color: #ffff;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-#send-message-button:hover {
-  background-color: #444;
-}
-
-body {
-  margin: 0 auto;
-  max-width: 800px;
-  padding: 0 20px;
-}
-
-.container {
-  border: 2px solid #eff6ff;
-  background-color: #bcbdf0;
-  box-shadow: rgb(0 0 0 / 15%) 0px 3px 3px 2px;
-  border-radius: 5px;
-  padding: 10px;
-  margin: 10px 0;
-}
-
-.darker {
-  border-color: #a8a4a4;
-  background-color: #7e73fa;
-}
-
-.container::after {
-  content: "";
-  clear: both;
-  display: table;
-}
-
-.container img {
-  float: left;
-  max-width: 60px;
-  width: 100%;
-  margin-right: 20px;
-  border-radius: 50%;
-}
-
-.container img.right {
-  float: right;
-  margin-left: 20px;
-  margin-right:0;
-}
-
-.time-right {
-  float: right;
-  color: #fcf7f7;
-}
-
-.time-left {
-  float: left;
-  color: #251f1f;
-}
-#chat-container {
-    
+  body {
+    margin: 0 auto;
+    max-width: 800px;
+    padding: 0 20px;
+    background-color: #111b21;
+    color: #e9edef;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  
+  .chat-input-container {
+    display: flex;
+    align-items: center;
+    background-color: #202c33;
+    border-radius: 8px;
+    padding: 10px;
+    margin: 20px 0;
+    position: sticky;
+    bottom: 0;
+  }
+  
+  #message-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 15px;
+    padding: 8px 12px;
+    height: 40px;
+    min-height: 30px;
+    overflow: hidden;
+    background-color: transparent;
+    color: #e9edef;
+  }
+  
+  #message-input::placeholder {
+    color: #8696a0;
+  }
+  
+  #send-message-button {
+    background-color: #00a884;
+    color: #111b21;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 50%;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  #send-message-button:hover {
+    background-color: #02917a;
+  }
+  
+  .container {
+    margin: 8px 0;
+    padding: 6px 7px 8px 9px;
+    max-width: 65%;
+    position: relative;
+    border-radius: 7.5px;
+    background-color: #202c33;
+    color: #e9edef;
+  }
+  
+  .container.darker {
+    background-color: #005c4b;
+    margin-left: auto;
+  }
+  
+  .container::after {
+    content: "";
+    clear: both;
+    display: table;
+  }
+  
+  .message-sender {
+    font-size: 13px;
+    font-weight: 500;
+    color: #53bdeb;
+    margin-bottom: 4px;
+  }
+  
+  .message-content {
+    font-size: 14px;
+    line-height: 19px;
+    margin: 0;
+  }
+  
+  .time {
+    float: right;
+    color: #8696a0;
+    font-size: 11px;
+    margin-left: 8px;
+    margin-top: 4px;
+  }
+  
+  #chat-container {
     overflow-y: auto;
-    height: 400px;  
-}
-#chat_image {
-  max-width: 300px;  
-  margin-right: 20px;
-  border-radius: 5%;
-}
-
-</style>
+    height: calc(100vh - 160px);
+    padding: 20px 0;
+    background-color: #111b21;
+  }
+  
+  h2 {
+    background-color: #202c33;
+    color: #e9edef;
+    margin: 0;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 500;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  
+  /* Hide default avatar images */
+  .container img {
+    display: none;
+  }
+  </style>
 </head>
 <body>
+  <!-- Header -->
+  <h2>Chat Room</h2>
+  
+  <!-- Chat Container -->
+  <div id="chat-container">
+    {% for message in messages %}
+      {% if message.sender == request.user.username %}
+        <div class="container darker">
+          <p class="message-content">{{message.content}}</p>
+          <span class="time">11:01</span>
+        </div>
+      {% else %}
+        <div class="container">
+          <p class="message-sender">{{message.sender}}</p>
+          <p class="message-content">{{message.content}}</p>
+          <span class="time">11:00</span>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <!-- Message Input -->
+  <div class="chat-input-container">
+    <textarea id="message-input" placeholder="Message" rows="1"></textarea>
+    <button id="send-message-button">➤</button>
+  </div>
+
+  <!-- Your scripts section remains the same -->
+  {{room_id|json_script:"room-id"}}
+  {{request.user.username|json_script:"user_username"}}
+  {{request.user.id|json_script:"user-id"}}
+  {{user_private_key|json_script:"user_private_key"}}
+
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl-util@0.15.0/nacl-util.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.1/nacl.min.js"></script>
+ 
   <script>
+
+    // Your existing WebSocket and crypto code remains the same
+    const roomId = JSON.parse(document.getElementById('room-id').textContent);
+    const user_username = JSON.parse(document.getElementById('user_username').textContent);
+    const userId = JSON.parse(document.getElementById('user-id').textContent);
+
+    const chatSocket = new WebSocket(
+      'ws://' + window.location.host + '/ws/chat/' + roomId + '/'
+    );
+
+    const cryptoUtils = {
+      
+      openBox(encryptedMsgKey, senderPubKey, recipientPrivKey) {
+        try {
+            // First create the shared key
+            const sharedKey = nacl.box.before(senderPubKey, recipientPrivKey);
+            
+            // Extract nonce (first 24 bytes) and ciphertext
+            const nonce = encryptedMsgKey.slice(0, nacl.box.nonceLength);
+            const ciphertext = encryptedMsgKey.slice(nacl.box.nonceLength);
+            
+            // Use the shared key to decrypt the message
+            const decryptedMsgKey = nacl.box.open.after(ciphertext, nonce, sharedKey);
+            
+            if (!decryptedMsgKey) {
+                throw new Error('Failed to decrypt message key');
+            }
+            
+            return decryptedMsgKey;
+        } catch (error) {
+            console.error('Error in openBox:', error);
+            throw error;
+        }
+      },
+      openSecretBox(encryptedMsg, key) {
+        try {
+            // Extract nonce (first 24 bytes) and ciphertext
+            const nonce = encryptedMsg.slice(0, nacl.secretbox.nonceLength);
+            const ciphertext = encryptedMsg.slice(nacl.secretbox.nonceLength);
+            
+            const decrypted = nacl.secretbox.open(ciphertext, nonce, key);
+            
+            if (!decrypted) {
+                throw new Error('Failed to decrypt message content');
+            }
+            
+            return decrypted;
+        } catch (error) {
+            console.error('Error in openSecretBox:', error);
+            throw error;
+        }
+      }
+    };
+
+    chatSocket.onmessage = async function(e) {
+      const data = JSON.parse(e.data);
+
+      try {
+        // Get user data
+        const user_username = JSON.parse(document.getElementById('user_username').textContent);
+        const user_private_key = JSON.parse(document.getElementById('user_private_key').textContent);
+        const sender_public_key = data['sender_public_key'];
+        const encrypted_message_key = data.encrypted_message_keys[user_username];
+        const encrypted_content = data['encrypted_content'];
+
+
+        // Input validation
+        if (!encrypted_message_key || !sender_public_key || !user_private_key || !encrypted_content) {
+            throw new Error('Missing required encryption fields');
+        }
+
+        // Decode Base64 inputs
+        const decodedMsgKey = nacl.util.decodeBase64(encrypted_message_key);
+        const decodedSenderPubKey = nacl.util.decodeBase64(sender_public_key);
+        const decodedUserPrivKey = nacl.util.decodeBase64(user_private_key);
+        const decodedContent = nacl.util.decodeBase64(encrypted_content);
+
+        // Verify decoded data
+        if (!decodedMsgKey || !decodedSenderPubKey || !decodedUserPrivKey || !decodedContent) {
+            throw new Error('Invalid Base64 encoding');
+        }
+
+        // Decrypt message key
+        const decrypted_msg_key = cryptoUtils.openBox(
+            decodedMsgKey,
+            decodedSenderPubKey,
+            decodedUserPrivKey
+        );
+      
+        // Decrypt content
+        const decrypted_content = cryptoUtils.openSecretBox(
+            decodedContent,
+            decrypted_msg_key
+        );
+        
+        // Convert to text
+        const messageText = nacl.util.encodeUTF8(decrypted_content);
+       
+        // Here you can handle the decrypted message (e.g., display it in UI)
+        const senderUsername= data.sender_username;
+      
+        // Modified message display code to match WhatsApp style
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('container');
+        
+        let messageHTML = '';
+        if (senderUsername === user_username) {
+          messageElement.classList.add('darker');
+          messageHTML = `
+            <p class="message-content">${messageText}</p>
+            <span class="time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          `;
+        } else {
+          messageHTML = `
+            <p class="message-sender">${data.sender_username || 'User'}</p>
+            <p class="message-content">${messageText}</p>
+            <span class="time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          `;
+        }
+
+        messageElement.innerHTML = messageHTML;
+        
+        const chatContainer = document.querySelector('#chat-container');
+        chatContainer.appendChild(messageElement);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      } catch (error) {
+        console.error('Full error details:', error);
+      }
+    };
+
+    // Handle sending messages
+    document.querySelector("#send-message-button").onclick = async function(e) {
+      const messageInputDOM = document.querySelector('#message-input');
+      const message = messageInputDOM.value;
+      
+      if (message.trim()) {
+        chatSocket.send(JSON.stringify({
+          'message': message,
+          'sender_id': userId
+        }));
+        messageInputDOM.value = "";
+        messageInputDOM.style.height = '40px';
+      }
+    };
+
+    // Handle Enter key
+    document.querySelector('#message-input').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.querySelector('#send-message-button').click();
+      }
+    });
+
+    // Auto-expand textarea
+    const messageInput = document.querySelector('#message-input');
+    messageInput.addEventListener('input', function() {
+      this.style.height = '40px';
+      this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    // Initial scroll to bottom
     window.onload = function() {
-        var chatContainer = document.getElementById("chat-container");  
-        if (chatContainer) {
-            chatContainer.scrollTop = chatContainer.scrollHeight;  
-        } 
-        window.scrollTo(0, document.documentElement.scrollHeight);
+      const chatContainer = document.getElementById("chat-container");
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    };
+
+    // Handle WebSocket errors
+    chatSocket.onerror = function(error) {
+      console.error('WebSocket error:', error);
+    };
+
+    chatSocket.onclose = function(e) {
+      console.log('Chat socket closed unexpectedly');
     };
   </script>
-
-<h2>Chat Room</h2>
-<div id="chat-container">
-  {% for message in messages %}
-    {% if message.sender == request.user %}
-      <div class="container darker">
-        <img src="https://res.cloudinary.com/dqnwkkmzz/image/upload/v1/media/post-pic/default_dp.png" alt="Avatar" class="right" style="width:100%;">
-        <p>{{message.sender}}</p>
-        {% if message.image %}
-          <img id="chat_image" src = "{{message.image.url}}">
-        {% endif %}
-        <p>{{message.content}}</p>
-        <span class="time-left">11:01</span>
-      </div>
-    {%else %}
-      <div class="container">
-        <img src="https://res.cloudinary.com/dqnwkkmzz/image/upload/v1/media/post-pic/default_dp.png" alt="Avatar" style="width:100%;">
-        <p>{{message.sender}}</p>
-        {% if message.image %}
-        <img id="chat_image" src = "{{message.image.url}}">
-        {% endif %}
-        <p>{{message.content}}</p>
-        <span class="time-right">11:00</span>
-      </div>
-    {% endif %}
-  {% endfor %}
-
-</div> 
-<div class="chat-input-container">
-  <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
-  <button id="send-message-button">Send</button>
-</div>
-
-{{room_id|json_script:"room-id"}}
-{{request.user.username|json_script:"user_username"}}
-{{request.user.id|json_script:"user-id"}}  
-
-<script>
-  const roomId = JSON.parse(document.getElementById('room-id').textContent);
-  const user_username = JSON.parse(document.getElementById('user_username').textContent);
-  const userId = JSON.parse(document.getElementById('user-id').textContent); // Add this to your template
-
-  // Initialize WebSocket connection
-  const chatSocket = new WebSocket(
-    'ws://' + window.location.host + '/ws/chat/' + roomId + '/'
-  );
-
-  // Handle sending messages
-  document.querySelector("#send-message-button").onclick = async function(e) {
-    const messageInputDOM = document.querySelector('#message-input');
-    const message = messageInputDOM.value;
-    
-    if (message.trim()) {
-      chatSocket.send(JSON.stringify({
-        'message': message,
-        'sender_id': userId
-      }));
-      messageInputDOM.value = "";
-    }
-  };
-
-  // Handle received messages
-  chatSocket.onmessage = async function(e) {
-    const data = JSON.parse(e.data);
-    console.log("data", data);
-    try {
-      // Get the message content
-      const encryptedContent = data.encrypted_content;
-      //get this user's username
-      //get_this_user_msg_key from encrypted_msg_key dict using his username
-      //get this user's private key
-      //get senders public key
-      //create Box(user_pri, sender_pub)
-      //use Box to decrypt encrypted_msg_key= decrypted_msg_key
-      //use decrypted_msg_key to create SecretBox
-      //use secret box to decrypt encrpted_msg_content = content
-
-
-      const senderId = data.sender_id;
-      console.log("encrypted_message_keys:  ", data.encrypted_message_keys);
-      
-      // Create message element
-      const messageElement = document.createElement('div');
-      messageElement.classList.add('container');
-      
-      let new_message_string;
-      // Check if this is from the current user
-      if (senderId === userId) {
-        messageElement.classList.add('darker');
-        new_message_string = `
-          <img src="https://res.cloudinary.com/dqnwkkmzz/image/upload/v1/media/post-pic/default_dp.png" alt="Avatar" class="right" style="width:100%;">
-          <p>${user_username}</p>
-          <p>${encryptedContent}</p>
-          <span class="time-right">${new Date().toLocaleTimeString()}</span>
-        `;
-      } else {
-        new_message_string = `
-          <img src="https://res.cloudinary.com/dqnwkkmzz/image/upload/v1/media/post-pic/default_dp.png" alt="Avatar" style="width:100%;">
-          <p>${data.sender_username || 'User'}</p>
-          <p>${encryptedContent}</p>
-          <span class="time-right">${new Date().toLocaleTimeString()}</span>
-        `;
-      }
-      
-      messageElement.innerHTML = new_message_string;
-      
-      // Add message to chat container
-      const chatContainer = document.querySelector('#chat-container');
-      chatContainer.appendChild(messageElement);
-      
-      // Scroll to bottom
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-    } catch (error) {
-      console.error('Error processing message:', error);
-    }
-  };
-
-  // Handle Enter key in textarea
-  document.querySelector('#message-input').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      document.querySelector('#send-message-button').click();
-    }
-  });
-
-  // Handle WebSocket errors
-  chatSocket.onerror = function(error) {
-    console.error('WebSocket error:', error);
-  };
-
-  chatSocket.onclose = function(e) {
-    console.log('Chat socket closed unexpectedly');
-  };
-
-  // Auto-expand textarea
-  const messageInput = document.querySelector('#message-input');
-  messageInput.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = (this.scrollHeight) + 'px';
-  });
-</script>
 </body>
 </html>

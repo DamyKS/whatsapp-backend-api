@@ -6,6 +6,9 @@ from django.shortcuts import get_object_or_404
 from .models import Chat, Message, CallSession
 from .serializers import ChatSerializer , MessageSerializer, CallSessionSerializer, DecryptedMessageSerializer
 
+from nacl.public import PrivateKey
+from accounts.key_cache import UserKeyManager
+from base64 import b64encode 
 class ChatList(APIView):
     def get(self, request):
         #chats = Chat.objects.all()
@@ -62,10 +65,13 @@ def room(request,room_id):
     messages = chat.messages.order_by('timestamp').all()
     messages= DecryptedMessageSerializer(messages,many=True, context={'request': request}).data
 
+     #get current user private key from cache
+    current_user_private_key= UserKeyManager.get_session_key(request.user.id)
     return render(request, 'chatroom.html', {
         'room_id': room_id,
         'messages':messages,
         'request': request, 
+        'user_private_key': b64encode(current_user_private_key).decode()
     })
 
 
