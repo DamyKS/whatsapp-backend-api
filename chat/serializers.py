@@ -6,7 +6,7 @@ from nacl.public import Box, PrivateKey, PublicKey
 from nacl.secret import SecretBox
 from accounts.models import UserKey
 from accounts.key_cache import UserKeyManager
-
+import base64
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
@@ -38,10 +38,7 @@ class DecryptedMessageSerializer(serializers.ModelSerializer):
         #get sender from msg obj
         sender=obj.sender
         #get msg key 
-        message_keys= MessageKey.objects.filter(message=obj).all()
-        for potential_msg_key in message_keys:
-            if potential_msg_key.recipient==current_user:
-                message_key=potential_msg_key
+        message_key = MessageKey.objects.filter(message=obj, recipient=current_user).first()
         #get encrypted_msg_key from msg key
         encrypted_message_key= message_key.encrypted_message_key
         #get current user private key from cache
@@ -49,8 +46,6 @@ class DecryptedMessageSerializer(serializers.ModelSerializer):
         #get sender's userkey and get their public key 
         sender_public_key= PublicKey( UserKey.objects.get(user=sender).public_key)
         #create Box(current_user_pri, sender_pub )
-        print("pti:  ", current_user_private_key)
-        print("pub: ", sender_public_key)
         box= Box(current_user_private_key,sender_public_key )
         #use Box to decript encrypted_msg_key = decrypted_msg_key
         decrypted_message_key= box.decrypt(encrypted_message_key)
@@ -59,7 +54,6 @@ class DecryptedMessageSerializer(serializers.ModelSerializer):
         #use SecretBox to decrypted encrypted_msg_content = content
         decrypted_content=secret_box.decrypt(obj.encrypted_content)
         #retirn content
-        print("TEST TEST TEST")
         return decrypted_content.decode('utf-8') 
     
 class ChatSerializer(serializers.ModelSerializer):
@@ -76,7 +70,7 @@ class ChatSerializer(serializers.ModelSerializer):
         last_message = obj.messages.first()
         return {
             'id': last_message.id if last_message else None,
-            'content': last_message.content if last_message else '',
+            'encrypted_content': base64.b64encode(last_message.encrypted_content).decode('utf-8') if last_message else '',
             'sender': last_message.sender.username if last_message else '',
             'timestamp': last_message.timestamp if last_message else None
         }

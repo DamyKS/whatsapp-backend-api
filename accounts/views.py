@@ -7,8 +7,15 @@ from .serializers import ProfileSerializer
 from rest_framework.permissions import IsAuthenticated
 
 from .encryption import derive_master_key, generate_user_keys, encrypt_private_key, decrypt_private_key
-#import nacl 
 from rest_framework.authtoken.models import Token
+from dj_rest_auth.views import LoginView
+from dj_rest_auth.views import LogoutView
+
+from dj_rest_auth.registration.views import RegisterView
+from nacl.pwhash import argon2id  
+import nacl.utils
+from .key_cache import UserKeyManager
+
 
 class ProfileDetail(APIView):
     permission_classes = [IsAuthenticated]
@@ -55,12 +62,7 @@ class ProfileDetail(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-from rest_framework import status
-from rest_framework.response import Response
-from dj_rest_auth.registration.views import RegisterView
-from nacl.pwhash import argon2id  # Use argon2id instead of scrypt
-import nacl.utils
-from .key_cache import UserKeyManager
+
 class CustomRegisterView(RegisterView):
     def perform_create(self, serializer):
         password = serializer.validated_data.get('password1')
@@ -87,12 +89,7 @@ class CustomRegisterView(RegisterView):
         
         # Decrypt and store in session
         try:
-            # decrypted_key = decrypt_private_key(
-            #     encrypted_key=private_key_data['encrypted_key'],
-            #     nonce=private_key_data['nonce'],
-            #     master_key=master_key
-            # )
-            # print(decrypted_key)
+           
             print(private_key)
             UserKeyManager.store_session_key(user.id, private_key)
         except Exception as e:
@@ -101,8 +98,6 @@ class CustomRegisterView(RegisterView):
             
         return user
 
-from dj_rest_auth.views import LoginView
-from dj_rest_auth.views import LogoutView
 
 class CustomLoginView(LoginView):
     def post(self, request, *args, **kwargs):

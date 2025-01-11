@@ -1,19 +1,15 @@
 import json
 from channels.generic.websocket import  AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from . models import Chat, Message, CallSession
+from . models import Chat, Message, CallSession, MessageKey
 from django.contrib.auth.models import User
 
 from .twilio_utils import get_access_token , get_call_twiml
-
-
-
 
 from nacl.public import Box, PrivateKey, PublicKey
 from nacl.secret import SecretBox
 import nacl.utils
 from base64 import b64encode
-from . models import Chat, Message, MessageKey
 from accounts.models import UserKey
 from accounts.key_cache import UserKeyManager
 
@@ -72,15 +68,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         
         return str(new_message.message_id)  # Return UUID as string
 
-    # async def connect(self):
-    #     self.room_id = self.scope['url_route']['kwargs']['room_id']
-    #     self.room_group_name = f'chat_{self.room_id}'
-        
-    #     await self.channel_layer.group_add(
-    #         self.room_group_name,
-    #         self.channel_name
-    #     )
-    #     await self.accept()
+  
     async def connect(self):
         self.room_id = self.scope['url_route']['kwargs']['room_id']
         self.room_group_name = f'chat_{self.room_id}'
@@ -153,16 +141,6 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
             }
         )
 
-    # async def chat_message(self, event):
-    #     # Send encrypted message to WebSocket
-    #     user_id = self.scope['user'].id
-    #     await self.send(text_data=json.dumps({
-    #         'message_id': event['message_id'],
-    #         'sender_id': event['sender_id'],
-    #         'encrypted_content': event['encrypted_content'],
-    #         'encrypted_key': event['encrypted_message_keys'].get(str(user_id))
-    #     }))
-    #     #
     async def chat_message(self, event):
         try:
             # Get user ID safely

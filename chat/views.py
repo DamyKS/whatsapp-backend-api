@@ -9,11 +9,15 @@ from .serializers import ChatSerializer , MessageSerializer, CallSessionSerializ
 from nacl.public import PrivateKey
 from accounts.key_cache import UserKeyManager
 from base64 import b64encode 
+
 class ChatList(APIView):
     def get(self, request):
         #chats = Chat.objects.all()
         chats = Chat.objects.filter(participants=request.user)
-        data = ChatSerializer(chats, many=True, context={'request': request}).data
+        try:
+            data = ChatSerializer(chats, many=True, context={'request': request}).data
+        except:
+            print("couldn't serialize chats ")
         return Response(data)
     
     def post(self, request):
@@ -28,32 +32,32 @@ class ChatDetail(APIView):
         messages = chat.messages
         for msg in messages.all():
             msg.read_by.add(request.user)
-        data = MessageSerializer(messages, many=True).data
+        data = DecryptedMessageSerializer(messages, many=True, context={'request': request}).data
         return Response(data)
     
-    def post(self, request, pk):
-        chat = get_object_or_404(Chat, pk=pk)
-        serializer = MessageSerializer(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        message= serializer.save()
-        message.read_by.add(request.user)
-        chat.messages.add(message)
-        chat.save()
-        return Response(MessageSerializer(message).data, status=status.HTTP_201_CREATED)
+    # def post(self, request, pk):
+    #     chat = get_object_or_404(Chat, pk=pk)
+    #     serializer = MessageSerializer(data=request.data, context={'request': request})
+    #     serializer.is_valid(raise_exception=True)
+    #     message= serializer.save()
+    #     message.read_by.add(request.user)
+    #     chat.messages.add(message)
+    #     chat.save()
+    #     return Response(MessageSerializer(message).data, status=status.HTTP_201_CREATED)
 
 
 class MessageDetail(APIView):
     def get(self, request, pk):
         message = get_object_or_404(Message, pk=pk)
-        data = MessageSerializer(message).data
+        data =  DecryptedMessageSerializer(message, context={'request': request}).data
         return Response(data)
     
-    def put(self, request,pk ):
-        message = get_object_or_404(Message, pk=pk)  # Find message
-        serializer = MessageSerializer(message, data=request.data, context={'request': request}, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()  # Update existing message
-        return Response(serializer.data)
+    # def put(self, request,pk ):
+    #     message = get_object_or_404(Message, pk=pk)  # Find message
+    #     serializer = MessageSerializer(message, data=request.data, context={'request': request}, partial=True)
+    #     serializer.is_valid(raise_exception=True)
+    #     serializer.save()  # Update existing message
+    #     return Response(serializer.data)
 
     def delete(self, request, pk):
         message= get_object_or_404(Message, pk=pk)
@@ -88,8 +92,6 @@ class CallSessionList(APIView):
         return Response(CallSessionSerializer(call_session).data, status=status.HTTP_201_CREATED)
 
 
-class CallSessionDetail(APIView):
-    pass
 
 class ChatSearch(APIView):
     def post(self, request, pk):
